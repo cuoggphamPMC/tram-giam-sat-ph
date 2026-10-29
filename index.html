@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trạm Giám Sát & Điều Khiển Độ pH</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fafafa',
+                            100: '#f4f4f5',
+                            500: '#71717a',
+                            600: '#52525b',
+                            900: '#18181b',
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 0 3px rgba(0, 0, 0, 0.02)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            background-color: #fafafa;
+            background-image: radial-gradient(circle at 100% 0%, #f4f4f5 0%, transparent 25%), radial-gradient(circle at 0% 100%, #f4f4f5 0%, transparent 25%);
+            background-attachment: fixed;
+        }
+        
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="text-slate-700 min-h-screen flex flex-col items-center py-6 px-4 sm:px-6">
+
+    <div class="w-full max-w-4xl space-y-6">
+        
+        <!-- Header -->
+        <div class="glass-card rounded-2xl shadow-soft border border-zinc-200 overflow-hidden">
+            <div class="h-2 bg-zinc-800"></div>
+            <div class="p-6 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-zinc-100 text-zinc-700 flex items-center justify-center shrink-0 border border-zinc-200">
+                    <i class="fa-solid fa-droplet text-xl"></i>
+                </div>
+                <div>
+                    <span class="inline-block px-2 py-1 bg-zinc-100 text-zinc-600 text-xs font-bold rounded-md mb-1 tracking-wider uppercase border border-zinc-200">Nhóm 3</span>
+                    <h1 class="text-xl sm:text-2xl font-bold text-zinc-800 uppercase tracking-tight">Trạm Giám Sát & Điều Khiển Độ pH</h1>
+                </div>
+                <div class="ml-auto hidden sm:block text-zinc-200">
+                    <i class="fa-solid fa-heart-pulse text-3xl opacity-50"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- pH Stat -->
+            <div class="glass-card rounded-2xl shadow-soft border border-zinc-200 p-5 flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center shrink-0 border border-zinc-200">
+                    <i class="fa-solid fa-flask"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Độ pH Hiện Tại</p>
+                    <div class="flex items-baseline gap-1">
+                        <h2 id="phValue" class="text-3xl font-bold text-zinc-800">7.00</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VOUT Stat -->
+            <div class="glass-card rounded-2xl shadow-soft border border-zinc-200 p-5 flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center shrink-0 border border-zinc-200">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Điện Áp VOUT</p>
+                    <div class="flex items-baseline gap-1">
+                        <h2 id="voutValue" class="text-3xl font-bold text-zinc-800">1.650</h2>
+                        <span class="text-sm font-medium text-zinc-500">V</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pump Stat -->
+            <div class="glass-card rounded-2xl shadow-soft border border-zinc-200 p-5 flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center shrink-0 border border-zinc-200">
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Trạng Thái Bơm</p>
+                    <div class="flex flex-col items-start mt-1 gap-1">
+                        <span id="pumpBadge" class="px-2.5 py-1 text-xs font-bold rounded-full bg-zinc-100 text-zinc-500 border border-zinc-200 shadow-sm flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+                            ĐANG TẮT
+                        </span>
+                        <p id="modeText" class="text-[11px] font-medium text-zinc-500 ml-1">Chế độ: Tự động</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="glass-card rounded-2xl shadow-soft border border-zinc-200 p-1 sm:p-5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center px-4 py-3 sm:p-0 mb-4 gap-3">
+                <div class="flex items-center gap-2 text-zinc-700">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <h3 class="font-bold text-sm uppercase tracking-wide">Đồ thị Độ pH (5 Phút)</h3>
+                </div>
+                <!-- Time Toggles -->
+                <div class="flex bg-zinc-100 p-1 rounded-lg text-xs font-medium w-full sm:w-auto border border-zinc-200">
+                    <button class="flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">60s</button>
+                    <button class="flex-1 sm:flex-none px-3 py-1.5 rounded-md bg-white text-zinc-800 shadow-sm border border-zinc-200 transition-colors">5 phút</button>
+                    <button class="flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">60 phút</button>
+                    <button class="flex-1 sm:flex-none hidden sm:block px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">12h</button>
+                    <button class="flex-1 sm:flex-none hidden sm:block px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">24h</button>
+                </div>
+            </div>
+            <div class="relative h-64 sm:h-80 w-full px-2 sm:px-0">
+                <canvas id="phChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Automation Controls -->
+        <div class="glass-card rounded-2xl shadow-soft border border-zinc-200 overflow-hidden">
+            <div class="bg-zinc-50/80 px-5 py-3 border-b border-zinc-200 flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-zinc-600"></i>
+                <h3 class="font-bold text-sm text-zinc-800 uppercase tracking-wide">Cài đặt ngưỡng bơm tự động</h3>
+            </div>
+            
+            <div class="p-5">
+                <div class="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-6">
+                    <div class="flex items-center gap-3 w-full md:w-auto justify-center">
+                        <label class="text-sm font-semibold text-zinc-600">Bật bơm khi pH <</label>
+                        <input type="number" id="phLowInput" step="0.1" value="5.5" class="w-20 px-3 py-2 text-center text-lg font-bold text-zinc-800 bg-white border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400 shadow-sm transition-all">
+                    </div>
+                    <div class="hidden md:block w-px h-8 bg-zinc-200"></div>
+                    <div class="flex items-center gap-3 w-full md:w-auto justify-center">
+                        <label class="text-sm font-semibold text-zinc-600">Tắt bơm khi pH &ge;</label>
+                        <input type="number" id="phHighInput" step="0.1" value="6.2" class="w-20 px-3 py-2 text-center text-lg font-bold text-zinc-800 bg-white border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400 shadow-sm transition-all">
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-3">
+                    <button id="btnSaveThresholds" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Lưu ngưỡng cài đặt
+                    </button>
+                    <button id="btnManualToggle" class="px-5 py-2.5 bg-white border border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-sm font-semibold rounded-full shadow-sm transition-all flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                        <i class="fa-solid fa-power-off"></i> Bật/Tắt bơm thủ công
+                    </button>
+                    <button id="btnAutoMode" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-rotate"></i> Chế độ tự động
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calibration Section -->
+        <div class="glass-card rounded-2xl shadow-soft border border-zinc-200 overflow-hidden">
+            <div class="bg-zinc-50/80 px-5 py-3 border-b border-zinc-200 flex items-center gap-2">
+                <i class="fa-solid fa-wrench text-zinc-600"></i>
+                <h3 class="font-bold text-sm text-zinc-800 uppercase tracking-wide">Hiệu chuẩn sai số</h3>
+            </div>
+            <div class="p-5 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+                <button id="btnEnCal" class="px-5 py-2.5 bg-white border border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-sm font-semibold rounded-full shadow-sm transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-microchip"></i> Kích EN/CAL
+                </button>
+                <button id="btnCal7" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-check-double"></i> Chuẩn điểm 1 (pH 7.0)
+                </button>
+                <button id="btnCal4" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-check-double"></i> Chuẩn điểm 2 (pH 4.0)
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center pb-6">
+            <p id="connectionStatus" class="text-xs text-slate-400 font-medium flex items-center justify-center gap-2">
+                <i class="fa-solid fa-cloud"></i> Hệ thống đang chạy Mô phỏng (Sẵn sàng kết nối Firebase)... Phạm Mạnh Cường
+            </p>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDK (v11) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 1. APP STATE & DOM ELEMENTS
+        // ==========================================
+        const state = {
+            ph: 7.00,
+            vout: 1.650,
+            pumpOn: false,
+            isAutoMode: true,
+            thresholdLow: 5.5,
+            thresholdHigh: 6.2,
+            enCalActive: false
+        };
+
+        const els = {
+            phValue: document.getElementById('phValue'),
+            voutValue: document.getElementById('voutValue'),
+            pumpBadge: document.getElementById('pumpBadge'),
+            modeText: document.getElementById('modeText'),
+            phLowInput: document.getElementById('phLowInput'),
+            phHighInput: document.getElementById('phHighInput'),
+            btnSaveThresholds: document.getElementById('btnSaveThresholds'),
+            btnManualToggle: document.getElementById('btnManualToggle'),
+            btnAutoMode: document.getElementById('btnAutoMode'),
+            btnEnCal: document.getElementById('btnEnCal'),
+            connectionStatus: document.getElementById('connectionStatus')
+        };
+
+        // ==========================================
+        // 2. CHART.JS INITIALIZATION
+        // ==========================================
+        const ctx = document.getElementById('phChart').getContext('2d');
+        
+        // Create Gradient for chart
+        let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(39, 39, 42, 0.15)'); // Tailwind zinc-800 soft
+        gradient.addColorStop(1, 'rgba(39, 39, 42, 0.0)');
+
+        const initialLabels = Array.from({length: 20}, (_, i) => ''); // Empty labels for start
+        const initialData = Array.from({length: 20}, () => null);
+
+        const phChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: initialLabels,
+                datasets: [{
+                    label: 'Độ pH',
+                    data: initialData,
+                    borderColor: '#27272a', // zinc-800
+                    backgroundColor: gradient,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#27272a',
+                    pointBorderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.4 // Smooth curves
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 }, // Disable animation for real-time feel
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 10,
+                        titleFont: { family: 'Inter', size: 13 },
+                        bodyFont: { family: 'Inter', size: 14, weight: 'bold' },
+                        displayColors: false,
+                        callbacks: { label: function(context) { return context.parsed.y.toFixed(2); } }
+                    }
+                },
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 14,
+                        ticks: { stepSize: 2, font: { family: 'Inter', size: 11 }, color: '#94a3b8' },
+                        grid: { color: '#f1f5f9', drawBorder: false }
+                    },
+                    x: {
+                        ticks: { font: { family: 'Inter', size: 10 }, color: '#94a3b8', maxTicksLimit: 5 },
+                        grid: { display: false, drawBorder: false }
+                    }
+                }
+            }
+        });
+
+        // Function to update chart with new data
+        function updateChart(newPhValue) {
+            const timeNow = new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' });
+            
+            phChart.data.labels.push(timeNow);
+            phChart.data.datasets[0].data.push(newPhValue);
+            
+            // Keep only last 20 points
+            if (phChart.data.labels.length > 20) {
+                phChart.data.labels.shift();
+                phChart.data.datasets[0].data.shift();
+            }
+            phChart.update();
+        }
+
+
+        // ==========================================
+        // 3. UI UPDATE FUNCTIONS
+        // ==========================================
+        function updateUI() {
+            // Update Numbers
+            els.phValue.textContent = state.ph.toFixed(2);
+            els.voutValue.textContent = state.vout.toFixed(3);
+            
+            // Update Pump Badge
+            if (state.pumpOn) {
+                els.pumpBadge.className = "px-2.5 py-1 text-xs font-bold rounded-full bg-zinc-800 text-white shadow-sm flex items-center gap-1.5";
+                els.pumpBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> ĐANG BẬT`;
+            } else {
+                els.pumpBadge.className = "px-2.5 py-1 text-xs font-bold rounded-full bg-zinc-100 text-zinc-500 border border-zinc-200 shadow-sm flex items-center gap-1.5";
+                els.pumpBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> ĐANG TẮT`;
+            }
+
+            // Update Mode UI
+            if (state.isAutoMode) {
+                els.modeText.textContent = "Chế độ: Tự động";
+                els.btnManualToggle.disabled = true;
+                els.btnManualToggle.classList.add('opacity-50', 'cursor-not-allowed');
+                els.btnAutoMode.className = "px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-2";
+            } else {
+                els.modeText.textContent = "Chế độ: Thủ công";
+                els.btnManualToggle.disabled = false;
+                els.btnManualToggle.classList.remove('opacity-50', 'cursor-not-allowed');
+                els.btnAutoMode.className = "px-5 py-2.5 bg-white border border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-sm font-semibold rounded-full shadow-sm transition-all flex items-center gap-2";
+            }
+
+            // Update EN/CAL button
+            if(state.enCalActive) {
+                els.btnEnCal.className = "px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-2";
+            } else {
+                els.btnEnCal.className = "px-5 py-2.5 bg-white border border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-sm font-semibold rounded-full shadow-sm transition-all flex items-center gap-2";
+            }
+        }
+
+        // Logic check for Auto mode
+        function checkAutoModeLogic() {
+            if (!state.isAutoMode) return;
+            
+            let shouldPumpBeOn = state.pumpOn;
+            
+            // Logic: Turn ON if pH drops below Low threshold (acidic) - adjust logic based on your chemical process
+            // If the goal is to increase pH, turn on base pump when pH < low. 
+            // Turn off when pH >= high.
+            if (state.ph < state.thresholdLow && !state.pumpOn) {
+                shouldPumpBeOn = true;
+            } else if (state.ph >= state.thresholdHigh && state.pumpOn) {
+                shouldPumpBeOn = false;
+            }
+
+            if (shouldPumpBeOn !== state.pumpOn) {
+                state.pumpOn = shouldPumpBeOn;
+                updateUI();
+                syncToCloud();
+            }
+        }
+
+
+        // ==========================================
+        // 4. FIREBASE / CLOUD SYNC LOGIC
+        // ==========================================
+        let db = null;
+        let iotDocRef = null;
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'ph-station-team3';
+        
+        // Custom modal function to replace alert()
+        function showMessage(msg) {
+            const el = document.createElement('div');
+            el.className = 'fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm font-medium animate-bounce';
+            el.innerText = msg;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        async function initFirebase() {
+            try {
+                if (typeof __firebase_config === 'undefined') {
+                    console.log("No Firebase config injected. Running in Local Mock Mode.");
+                    startMockDataGenerator();
+                    return;
+                }
+
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                db = getFirestore(app);
+
+                // RULE 3: Auth Before Queries
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    await signInWithCustomToken(auth, token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                if (!auth.currentUser) return;
+
+                // RULE 1: Strict Paths
+                // We use a public data path so the ESP32 (if it has credentials) or other viewers can see it
+                iotDocRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'iot_state', 'current');
+
+                // Initialize document if it doesn't exist
+                await setDoc(iotDocRef, state, { merge: true });
+
+                // Listen for real-time changes
+                onSnapshot(iotDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        
+                        // Update local state with cloud state (preventing infinite loop if UI just updated it)
+                        state.ph = data.ph !== undefined ? data.ph : state.ph;
+                        state.vout = data.vout !== undefined ? data.vout : state.vout;
+                        state.pumpOn = data.pumpOn !== undefined ? data.pumpOn : state.pumpOn;
+                        state.isAutoMode = data.isAutoMode !== undefined ? data.isAutoMode : state.isAutoMode;
+                        state.thresholdLow = data.thresholdLow !== undefined ? data.thresholdLow : state.thresholdLow;
+                        state.thresholdHigh = data.thresholdHigh !== undefined ? data.thresholdHigh : state.thresholdHigh;
+                        state.enCalActive = data.enCalActive !== undefined ? data.enCalActive : state.enCalActive;
+
+                        // Sync Inputs if changed externally
+                        els.phLowInput.value = state.thresholdLow;
+                        els.phHighInput.value = state.thresholdHigh;
+
+                        updateUI();
+                        updateChart(state.ph);
+                    }
+                }, (error) => {
+                    console.error("Firestore error:", error);
+                });
+
+                els.connectionStatus.innerHTML = `<i class="fa-solid fa-cloud-check text-emerald-500"></i> Đã kết nối Cloud Firestore... Phạm Mạnh Cường`;
+
+            } catch (error) {
+                console.error("Firebase setup failed, falling back to mock mode:", error);
+                startMockDataGenerator();
+            }
+        }
+
+        async function syncToCloud() {
+            if (db && iotDocRef) {
+                try {
+                    await updateDoc(iotDocRef, {
+                        pumpOn: state.pumpOn,
+                        isAutoMode: state.isAutoMode,
+                        thresholdLow: state.thresholdLow,
+                        thresholdHigh: state.thresholdHigh,
+                        enCalActive: state.enCalActive
+                    });
+                } catch (e) {
+                    console.error("Error writing to cloud:", e);
+                }
+            }
+        }
+
+        // ==========================================
+        // 5. EVENT LISTENERS
+        // ==========================================
+        
+        // Save Thresholds
+        els.btnSaveThresholds.addEventListener('click', () => {
+            const low = parseFloat(els.phLowInput.value);
+            const high = parseFloat(els.phHighInput.value);
+            
+            if(isNaN(low) || isNaN(high) || low >= high) {
+                showMessage("Lỗi: Ngưỡng bật phải nhỏ hơn ngưỡng tắt!");
+                return;
+            }
+            
+            state.thresholdLow = low;
+            state.thresholdHigh = high;
+            syncToCloud();
+            checkAutoModeLogic();
+            
+            els.btnSaveThresholds.innerHTML = `<i class="fa-solid fa-check"></i> Đã lưu`;
+            setTimeout(() => {
+                els.btnSaveThresholds.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Lưu ngưỡng cài đặt`;
+            }, 2000);
+        });
+
+        // Toggle Auto/Manual Mode
+        els.btnAutoMode.addEventListener('click', () => {
+            state.isAutoMode = !state.isAutoMode;
+            updateUI();
+            syncToCloud();
+        });
+
+        // Manual Pump Toggle
+        els.btnManualToggle.addEventListener('click', () => {
+            if (state.isAutoMode) return; // Prevent if in auto mode
+            state.pumpOn = !state.pumpOn;
+            updateUI();
+            syncToCloud();
+        });
+
+        // Toggle EN/CAL Pin
+        els.btnEnCal.addEventListener('click', () => {
+            state.enCalActive = !state.enCalActive;
+            updateUI();
+            syncToCloud();
+            showMessage(state.enCalActive ? "Đã Kích hoạt chân EN/CAL" : "Đã Tắt chân EN/CAL");
+        });
+
+        document.getElementById('btnCal7').addEventListener('click', () => {
+            showMessage("Lưu giá trị ADC cho pH 7.0 thành công!");
+        });
+
+        document.getElementById('btnCal4').addEventListener('click', () => {
+            showMessage("Lưu giá trị ADC cho pH 4.0 thành công!");
+        });
+
+
+        // ==========================================
+        // 6. MOCK DATA GENERATOR (For testing w/o hardware)
+        // ==========================================
+        let mockInterval;
+        function startMockDataGenerator() {
+            if(mockInterval) clearInterval(mockInterval);
+            
+            // Initialize chart with flat line at 7.0
+            for(let i=0; i<20; i++) updateChart(7.00);
+
+            mockInterval = setInterval(() => {
+                // Simulate pH reading fluctuation based on pump status
+                // If pump is ON, pH goes UP (assuming base pump). If OFF, pH slowly drops.
+                
+                let change = (Math.random() * 0.1) - 0.05; // Random noise -0.05 to +0.05
+                
+                if (state.pumpOn) {
+                    change += 0.08; // Pump adds base, pH rises
+                } else {
+                    change -= 0.03; // Natural acidity increases, pH drops slowly
+                }
+                
+                state.ph += change;
+                
+                // Clamp values between 0 and 14
+                if (state.ph < 0) state.ph = 0.1;
+                if (state.ph > 14) state.ph = 13.9;
+
+                // Simulate VOUT (VOUT goes down as pH goes up in many sensors, or vice versa. Assuming linear for mock)
+                // Just an arbitrary mock formula: VOUT ~ 3.3 - (pH * 0.2)
+                state.vout = 3.3 - (state.ph * 0.2); 
+                
+                updateUI();
+                updateChart(state.ph);
+                checkAutoModeLogic();
+                
+            }, 1000); // Update every 1 second
+        }
+
+        // Initialize Everything
+        updateUI();
+        initFirebase(); // Will fall back to mock data if no firebase
+
+    </script>
+</body>
+</html>
