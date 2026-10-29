@@ -132,15 +132,15 @@
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center px-4 py-3 sm:p-0 mb-4 gap-3">
                 <div class="flex items-center gap-2 text-zinc-700">
                     <i class="fa-solid fa-chart-line"></i>
-                    <h3 class="font-bold text-sm uppercase tracking-wide">Đồ thị Độ pH (5 Phút)</h3>
+                    <h3 id="chartTitle" class="font-bold text-sm uppercase tracking-wide">Đồ thị Độ pH (5 Phút)</h3>
                 </div>
                 <!-- Time Toggles -->
                 <div class="flex bg-zinc-100 p-1 rounded-lg text-xs font-medium w-full sm:w-auto border border-zinc-200">
-                    <button class="flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">60s</button>
-                    <button class="flex-1 sm:flex-none px-3 py-1.5 rounded-md bg-white text-zinc-800 shadow-sm border border-zinc-200 transition-colors">5 phút</button>
-                    <button class="flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">60 phút</button>
-                    <button class="flex-1 sm:flex-none hidden sm:block px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">12h</button>
-                    <button class="flex-1 sm:flex-none hidden sm:block px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">24h</button>
+                    <button data-time="60s" data-points="20" class="time-btn flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">60s</button>
+                    <button data-time="5 phút" data-points="60" class="time-btn flex-1 sm:flex-none px-3 py-1.5 rounded-md bg-white text-zinc-800 shadow-sm border border-zinc-200 transition-colors">5 phút</button>
+                    <button data-time="60 phút" data-points="120" class="time-btn flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">60 phút</button>
+                    <button data-time="12h" data-points="240" class="time-btn hidden sm:block flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">12h</button>
+                    <button data-time="24h" data-points="480" class="time-btn hidden sm:block flex-1 sm:flex-none px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-700 transition-colors">24h</button>
                 </div>
             </div>
             <div class="relative h-64 sm:h-80 w-full px-2 sm:px-0">
@@ -204,7 +204,7 @@
         <!-- Footer -->
         <div class="text-center pb-6">
             <p id="connectionStatus" class="text-xs text-slate-400 font-medium flex items-center justify-center gap-2">
-                <i class="fa-solid fa-cloud"></i> Hệ thống đang chạy Mô phỏng (Sẵn sàng kết nối Firebase)... Phạm Mạnh Cường
+                <i class="fa-solid fa-cloud"></i> Hệ thống đang chạy Mô phỏng (Sẵn sàng kết nối Firebase)... Nhóm 3: Mạnh Cường, Thái Bảo, Tấn Đạt
             </p>
         </div>
 
@@ -246,6 +246,7 @@
         // ==========================================
         // 2. CHART.JS INITIALIZATION
         // ==========================================
+        let currentMaxPoints = 60; // Mặc định hiển thị 60 điểm (cho tab 5 phút)
         const ctx = document.getElementById('phChart').getContext('2d');
         
         // Create Gradient for chart
@@ -312,10 +313,11 @@
             phChart.data.labels.push(timeNow);
             phChart.data.datasets[0].data.push(newPhValue);
             
-            // Keep only last 20 points
-            if (phChart.data.labels.length > 20) {
-                phChart.data.labels.shift();
-                phChart.data.datasets[0].data.shift();
+            // Cắt bớt điểm ảnh trên đồ thị tùy theo tab thời gian được chọn
+            if (phChart.data.labels.length > currentMaxPoints) {
+                const excess = phChart.data.labels.length - currentMaxPoints;
+                phChart.data.labels.splice(0, excess);
+                phChart.data.datasets[0].data.splice(0, excess);
             }
             phChart.update();
         }
@@ -453,7 +455,7 @@
                     console.error("Firestore error:", error);
                 });
 
-                els.connectionStatus.innerHTML = `<i class="fa-solid fa-cloud-check text-emerald-500"></i> Đã kết nối Cloud Firestore... Phạm Mạnh Cường`;
+                els.connectionStatus.innerHTML = `<i class="fa-solid fa-cloud-check text-emerald-500"></i> Đã kết nối Cloud Firestore... Nhóm 3: Mạnh Cường, Thái Bảo, Tấn Đạt`;
 
             } catch (error) {
                 console.error("Firebase setup failed, falling back to mock mode:", error);
@@ -531,6 +533,32 @@
 
         document.getElementById('btnCal4').addEventListener('click', () => {
             showMessage("Lưu giá trị ADC cho pH 4.0 thành công!");
+        });
+
+        // Chart Time Tab Toggles
+        const timeBtns = document.querySelectorAll('.time-btn');
+        const chartTitle = document.getElementById('chartTitle');
+
+        timeBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Đặt lại toàn bộ nút về trạng thái không được chọn
+                timeBtns.forEach(b => {
+                    b.classList.remove('bg-white', 'text-zinc-800', 'shadow-sm', 'border', 'border-zinc-200');
+                    b.classList.add('text-zinc-500', 'hover:text-zinc-700');
+                });
+                
+                // Đánh dấu nút vừa được click là đang chọn
+                const target = e.currentTarget;
+                target.classList.remove('text-zinc-500', 'hover:text-zinc-700');
+                target.classList.add('bg-white', 'text-zinc-800', 'shadow-sm', 'border', 'border-zinc-200');
+                
+                // Cập nhật tiêu đề đồ thị
+                const timeLabel = target.getAttribute('data-time');
+                chartTitle.textContent = `Đồ thị Độ pH (${timeLabel.toUpperCase()})`;
+                
+                // Cập nhật số điểm lưu trữ của đồ thị
+                currentMaxPoints = parseInt(target.getAttribute('data-points'));
+            });
         });
 
 
